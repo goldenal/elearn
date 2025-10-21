@@ -17,7 +17,7 @@ import { sequelizeModels } from '../models';
         port: parseInt(configService.get<string>('DB_PORT', '5432'), 10),
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', ''),
-        database: configService.get<string>('DB_NAME', 'eduhire'),
+        database: configService.get<string>('DB_NAME', 'postgres'),
         autoLoadModels: true,
         synchronize: false,
         logging: configService.get<string>('DB_LOGGING', 'false') === 'true',
