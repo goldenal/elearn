@@ -3,11 +3,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import * as express from 'express';
 
-const server = express();
+const express = require('express');
 
 async function bootstrap() {
+  const server = express();
+  
   const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
 
   app.useGlobalInterceptors(new LoggingInterceptor());
@@ -32,14 +33,12 @@ async function bootstrap() {
 
   await app.init();
 
-  // Listen only in non-serverless environments
-  if (process.env.NODE_ENV !== 'production') {
-    await app.listen(process.env.PORT || 3000, '0.0.0.0');
-  }
-
-  return app;
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`Application is running on port ${port}`);
 }
 
-bootstrap();
-
-export default server;
+bootstrap().catch((error) => {
+  console.error('Failed to bootstrap application:', error);
+  process.exit(1);
+});
