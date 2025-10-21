@@ -3,9 +3,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import * as express from 'express';
+import express from 'express'; // ✅ FIXED IMPORT
 
-const server = express();
+const server = express(); // ✅ now callable
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
@@ -31,12 +31,9 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  // Important: initialize app but do NOT listen
-  await app.init();
+  await app.init(); // ✅ do NOT use app.listen()
 }
 
-// Initialize the app
 bootstrap();
 
-// Export the Express server for Vercel
-export default server;
+export default server; // ✅ export Express server for Vercel
