@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -42,155 +44,175 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterUserDto) {
-    const existingUser = await this.usersService.findByEmail(
-      registerDto.email.toLowerCase(),
-    );
+    try {
+      const existingUser = await this.usersService.findByEmail(
+        registerDto.email.toLowerCase(),
+      );
 
-    if (existingUser) {
-      throw new BadRequestException('Email already in use');
+      if (existingUser) {
+        throw new BadRequestException('Email already in use');
+      }
+
+      const [firstName, ...rest] = registerDto.fullName.trim().split(/\s+/);
+      const lastName = rest.length > 0 ? rest.join(' ') : firstName;
+
+      const hashedPassword = await bcrypt.hash(
+        registerDto.password,
+        PASSWORD_SALT_ROUNDS,
+      );
+
+      const user = await this.usersService.createUser({
+        firstName,
+        lastName,
+        email: registerDto.email.toLowerCase(),
+        password: hashedPassword,
+      });
+
+      const token = await this.generateAccessToken(user);
+
+      return {
+        user: this.sanitizeUser(user),
+        accessToken: token,
+      };
+    } catch (error) {
+      this.handleError('register', error);
     }
-
-    const [firstName, ...rest] = registerDto.fullName.trim().split(/\s+/);
-    const lastName = rest.length > 0 ? rest.join(' ') : firstName;
-
-    const hashedPassword = await bcrypt.hash(
-      registerDto.password,
-      PASSWORD_SALT_ROUNDS,
-    );
-
-    const user = await this.usersService.createUser({
-      firstName,
-      lastName,
-      email: registerDto.email.toLowerCase(),
-      password: hashedPassword,
-    });
-
-    const token = await this.generateAccessToken(user);
-
-    return {
-      user: this.sanitizeUser(user),
-      accessToken: token,
-    };
   }
 
   async login(loginDto: LoginUserDto) {
-    const user = await this.usersService.findByEmail(
-      loginDto.email.toLowerCase(),
-    );
+    try {
+      const user = await this.usersService.findByEmail(
+        loginDto.email.toLowerCase(),
+      );
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const passwordMatches = await bcrypt.compare(
+        loginDto.password,
+        user.password,
+      );
+
+      if (!passwordMatches) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const token = await this.generateAccessToken(user);
+
+      return {
+        user: this.sanitizeUser(user),
+        accessToken: token,
+      };
+    } catch (error) {
+      this.handleError('login', error);
     }
-
-    const passwordMatches = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-
-    if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const token = await this.generateAccessToken(user);
-
-    return {
-      user: this.sanitizeUser(user),
-      accessToken: token,
-    };
   }
 
   async requestOtp(
     dto: RequestOtpDto,
     purpose: 'registration' | 'login' | 'password_reset' = 'login',
   ) {
-    const code = this.generateOtpCode();
-    const expiresAt = new Date(
-      Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000,
-    );
-
-    await this.otpModel.update(
-      { isVerified: true },
-      {
-        where: {
-          phoneOrEmail: dto.phoneOrEmail,
-          purpose,
-          isVerified: false,
-        },
-      },
-    );
-
-    const otp = await this.otpModel.create({
-      phoneOrEmail: dto.phoneOrEmail,
-      code,
-      purpose,
-      expiresAt,
-      isVerified: false,
-    });
-
-    const isEmailDestination = this.isEmail(dto.phoneOrEmail);
-
-    if (isEmailDestination) {
-      try {
-        await this.mailerService.sendOtpEmail({
-          to: dto.phoneOrEmail,
-          code,
-          purpose,
-        });
-      } catch (error) {
-        this.logger.error(
-          `Failed to send OTP email to ${dto.phoneOrEmail}`,
-          error instanceof Error ? error.stack : undefined,
-        );
-        throw new BadRequestException('Failed to send OTP email');
-      }
-    } else {
-      this.logger.warn(
-        `OTP generated for ${dto.phoneOrEmail} but delivery is not implemented.`,
+    try {
+      const code = this.generateOtpCode();
+      const expiresAt = new Date(
+        Date.now() + OTP_EXPIRATION_MINUTES * 60 * 1000,
       );
-    }
 
-    return {
-      message: 'OTP generated successfully',
-      otpId: otp.id,
-      deliveryMethod: isEmailDestination ? 'email' : 'unsupported',
-    };
+      await this.otpModel.update(
+        { isVerified: true },
+        {
+          where: {
+            phoneOrEmail: dto.phoneOrEmail,
+            purpose,
+            isVerified: false,
+          },
+        },
+      );
+
+      const otp = await this.otpModel.create({
+        phoneOrEmail: dto.phoneOrEmail,
+        code,
+        purpose,
+        expiresAt,
+        isVerified: false,
+      });
+
+      const isEmailDestination = this.isEmail(dto.phoneOrEmail);
+
+      if (isEmailDestination) {
+        try {
+          await this.mailerService.sendOtpEmail({
+            to: dto.phoneOrEmail,
+            code,
+            purpose,
+          });
+        } catch (mailerError) {
+          this.logger.error(
+            `Failed to send OTP email to ${dto.phoneOrEmail}`,
+            mailerError instanceof Error ? mailerError.stack : undefined,
+          );
+          throw new BadRequestException('Failed to send OTP email');
+        }
+      } else {
+        this.logger.warn(
+          `OTP generated for ${dto.phoneOrEmail} but delivery is not implemented.`,
+        );
+      }
+
+      return {
+        message: 'OTP generated successfully',
+        otpId: otp.id,
+        deliveryMethod: isEmailDestination ? 'email' : 'unsupported',
+      };
+    } catch (error) {
+      this.handleError('requestOtp', error);
+    }
   }
 
   async verifyOtp(
     dto: VerifyOtpDto,
     purpose: 'registration' | 'login' | 'password_reset' = 'login',
   ) {
-    const otpRecord = await this.otpModel.findOne({
-      where: {
-        phoneOrEmail: dto.phoneOrEmail,
-        code: dto.code,
-        purpose,
-        isVerified: false,
-        expiresAt: {
-          [Op.gt]: new Date(),
+    try {
+      const otpRecord = await this.otpModel.findOne({
+        where: {
+          phoneOrEmail: dto.phoneOrEmail,
+          code: dto.code,
+          purpose,
+          isVerified: false,
+          expiresAt: {
+            [Op.gt]: new Date(),
+          },
         },
-      },
-      order: [['createdAt', 'DESC']],
-    });
+        order: [['createdAt', 'DESC']],
+      });
 
-    if (!otpRecord) {
-      throw new BadRequestException('Invalid or expired OTP');
+      if (!otpRecord) {
+        throw new BadRequestException('Invalid or expired OTP');
+      }
+
+      otpRecord.isVerified = true;
+      await otpRecord.save();
+
+      return { message: 'OTP verified successfully' };
+    } catch (error) {
+      this.handleError('verifyOtp', error);
     }
-
-    otpRecord.isVerified = true;
-    await otpRecord.save();
-
-    return { message: 'OTP verified successfully' };
   }
 
   async getProfile(userId: string) {
-    const user = await this.usersService.findById(userId);
+    try {
+      const user = await this.usersService.findById(userId);
 
-    if (!user) {
-      throw new UnauthorizedException();
+      if (!user) {
+        throw new UnauthorizedException();
+      }
+
+      return this.sanitizeUser(user);
+    } catch (error) {
+      this.handleError('getProfile', error);
     }
-
-    return this.sanitizeUser(user);
   }
 
   private async generateAccessToken(user: User): Promise<string> {
@@ -219,5 +241,22 @@ export class AuthService {
 
   private isEmail(destination: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destination);
+  }
+
+  private handleError(context: string, error: unknown): never {
+    if (error instanceof HttpException) {
+      this.logger.error(
+        `AuthService.${context} failed with status ${error.getStatus()}`,
+        error.stack,
+      );
+      throw error;
+    }
+
+    this.logger.error(
+      `AuthService.${context} encountered an unexpected error`,
+      error instanceof Error ? error.stack : JSON.stringify(error),
+    );
+
+    throw new InternalServerErrorException('An unexpected error occurred');
   }
 }
