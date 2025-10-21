@@ -3,9 +3,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import express from 'express'; // ✅ FIXED IMPORT
 
-const server = express(); // ✅ now callable
+// 👇 require syntax avoids interop issues
+const express = require('express');
+const server = express();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, new ExpressAdapter(server));
@@ -13,7 +14,6 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.enableCors();
 
-  // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('EduHire API')
     .setDescription('API documentation for the EduHire e-learning platform')
@@ -31,9 +31,9 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  await app.init(); // ✅ do NOT use app.listen()
+  await app.init();
 }
 
 bootstrap();
 
-export default server; // ✅ export Express server for Vercel
+export default server;
