@@ -3,9 +3,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ExpressAdapter } from '@nestjs/platform-express';
+import * as express from 'express';
 
-// 👇 require syntax avoids interop issues
-const express = require('express');
 const server = express();
 
 async function bootstrap() {
@@ -32,6 +31,13 @@ async function bootstrap() {
   });
 
   await app.init();
+
+  // Listen only in non-serverless environments
+  if (process.env.NODE_ENV !== 'production') {
+    await app.listen(process.env.PORT || 3000, '0.0.0.0');
+  }
+
+  return app;
 }
 
 bootstrap();
