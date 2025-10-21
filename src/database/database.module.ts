@@ -13,6 +13,7 @@ import { sequelizeModels } from '../models';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         dialect: 'postgres',
+        url: process.env.DATABASE_URL,
         host: configService.get<string>('DB_HOST', 'localhost'),
         port: parseInt(configService.get<string>('DB_PORT', '5432'), 10),
         username: configService.get<string>('DB_USERNAME', 'postgres'),
