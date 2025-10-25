@@ -36,12 +36,12 @@ export class MailerService {
       return;
     }
 
-    const subject = 'Your EduHire verification code';
+    const subject = 'Your Codehallam verification code';
     const purposeCopy = this.renderPurposeCopy(options.purpose);
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>EduHire Verification Code</h2>
+        <h2>Codehallam Verification Code</h2>
         <p>${purposeCopy}</p>
         <p style="font-size: 24px; font-weight: bold;">${options.code}</p>
         <p>This code expires in 10 minutes.</p>
@@ -50,7 +50,7 @@ export class MailerService {
     `;
 
     await this.resend.emails.send({
-      from: "onboarding@resend.dev",
+      from: "verify@codehallam.useketra.com",
       to: options.to,
       subject,
       html: htmlContent,
@@ -62,12 +62,12 @@ export class MailerService {
   ): string {
     switch (purpose) {
       case 'registration':
-        return 'Use the verification code below to complete your registration on EduHire.';
+        return 'Use the verification code below to complete your registration on Codehallam.';
       case 'password_reset':
-        return 'Use the verification code below to reset your EduHire password.';
+        return 'Use the verification code below to reset your Codehallam password.';
       case 'login':
       default:
-        return 'Use the verification code below to continue signing in to EduHire.';
+        return 'Use the verification code below to continue signing in to Codehallam.';
     }
   }
 }

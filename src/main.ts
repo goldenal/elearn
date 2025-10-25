@@ -10,8 +10,8 @@ async function bootstrap() {
   app.enableCors();
 
   const config = new DocumentBuilder()
-    .setTitle('EduHire API')
-    .setDescription('API documentation for the EduHire e-learning platform')
+    .setTitle('CodeHallam API')
+    .setDescription('API documentation for the Codehallam e-learning platform')
     .setVersion('1.0')
     .addBearerAuth({
       type: 'http',
