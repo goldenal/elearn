@@ -13,7 +13,10 @@ import { tap } from 'rxjs/operators';
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(LoggingInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler<any>): Observable<any> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler<any>,
+  ): Observable<any> {
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest<Request>();
     const response = httpContext.getResponse<Response>();
@@ -23,7 +26,9 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     const { method, originalUrl, params, query } = request;
-    const sanitizedBody = this.sanitizePayload(request.body);
+    const sanitizedBody = this.sanitizePayload(
+      request.body as Record<string, any>,
+    );
     const start = Date.now();
 
     this.logger.log(
@@ -34,7 +39,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({
-        next: (data) => {
+        next: (data: unknown) => {
           const duration = Date.now() - start;
           this.logger.log(
             `Outgoing ${method} ${originalUrl} ${response.statusCode} | ${duration}ms | response=${JSON.stringify(
@@ -42,20 +47,20 @@ export class LoggingInterceptor implements NestInterceptor {
             )}`,
           );
         },
-        error: (error) => {
+        error: (error: unknown) => {
           const duration = Date.now() - start;
+          const errorMessage = (error as Error)?.message ?? 'unknown';
+          const errorStack = (error as Error)?.stack;
           this.logger.error(
-            `Error ${method} ${originalUrl} ${response.statusCode} | ${duration}ms | message=${
-              error?.message ?? 'unknown'
-            }`,
-            error?.stack,
+            `Error ${method} ${originalUrl} ${response.statusCode} | ${duration}ms | message=${errorMessage}`,
+            errorStack,
           );
         },
       }),
     );
   }
 
-  private sanitizePayload(payload: any): any {
+  private sanitizePayload(payload: unknown): unknown {
     if (payload === null || payload === undefined) {
       return payload;
     }
@@ -64,7 +69,7 @@ export class LoggingInterceptor implements NestInterceptor {
       return payload.map((item) => this.sanitizePayload(item));
     }
 
-    if (typeof payload === 'object') {
+    if (typeof payload === 'object' && payload !== null) {
       return Object.entries(payload).reduce<Record<string, unknown>>(
         (acc, [key, value]) => {
           if (typeof key === 'string' && this.isSensitiveKey(key)) {

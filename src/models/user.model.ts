@@ -6,12 +6,16 @@ import {
   PrimaryKey,
   Default,
   HasMany,
+  DefaultScope,
 } from 'sequelize-typescript';
 import { Course } from './course.model';
 import { Enrollment } from './enrollment.model';
 import { Review } from './review.model';
 import { Notification } from './notification.model';
 
+@DefaultScope(() => ({
+  attributes: { exclude: ['password'] },
+}))
 @Table({ tableName: 'users' })
 export class User extends Model {
   @PrimaryKey

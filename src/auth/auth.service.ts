@@ -45,7 +45,7 @@ export class AuthService {
 
   async register(registerDto: RegisterUserDto) {
     try {
-      const existingUser = await this.usersService.findByEmail(
+      const existingUser = await this.usersService.findOneByEmail(
         registerDto.email.toLowerCase(),
       );
 
@@ -61,7 +61,7 @@ export class AuthService {
         PASSWORD_SALT_ROUNDS,
       );
 
-      const user = await this.usersService.createUser({
+      const user = await this.usersService.create({
         firstName,
         lastName,
         email: registerDto.email.toLowerCase(),
@@ -81,8 +81,9 @@ export class AuthService {
 
   async login(loginDto: LoginUserDto) {
     try {
-      const user = await this.usersService.findByEmail(
+      const user = await this.usersService.findOneByEmail(
         loginDto.email.toLowerCase(),
+        true,
       );
 
       if (!user) {
@@ -203,7 +204,7 @@ export class AuthService {
 
   async getProfile(userId: string) {
     try {
-      const user = await this.usersService.findById(userId);
+      const user = await this.usersService.findOneById(userId);
 
       if (!user) {
         throw new UnauthorizedException();
@@ -227,7 +228,7 @@ export class AuthService {
   }
 
   private sanitizeUser(user: User) {
-    const { password, ...userData } = user.get({ plain: true }) as User & {
+    const { ...userData } = user.get({ plain: true }) as User & {
       password?: string;
     };
     return userData;
