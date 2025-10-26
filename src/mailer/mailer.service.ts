@@ -16,7 +16,6 @@ export class MailerService {
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    
 
     if (!apiKey) {
       this.logger.warn(
@@ -278,7 +277,7 @@ export class MailerService {
     `;
 
     await this.resend.emails.send({
-      from: "verify@codehallam.useketra.com",
+      from: 'verify@codehallam.useketra.com',
       to: options.to,
       subject,
       html: htmlContent,

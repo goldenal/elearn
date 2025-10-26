@@ -23,9 +23,7 @@ import { sequelizeModels } from '../models';
         synchronize: false,
         logging: configService.get<string>('DB_LOGGING', 'false') === 'true',
         models: [...sequelizeModels],
-        dialectOptions:
-         { ssl: { require: true, rejectUnauthorized: false } }
-           
+        dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
       }),
     }),
     SequelizeModule.forFeature([...sequelizeModels]),

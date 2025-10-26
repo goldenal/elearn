@@ -6,13 +6,24 @@ import {
   PrimaryKey,
   Default,
   HasMany,
+  Scopes,
 } from 'sequelize-typescript';
 import { Course } from './course.model';
 import { Enrollment } from './enrollment.model';
 import { Review } from './review.model';
 import { Notification } from './notification.model';
 
-@Table({ tableName: 'users' })
+@Scopes(() => ({
+  withPassword: {
+    attributes: { include: ['password'] },
+  },
+}))
+@Table({
+  tableName: 'users',
+  defaultScope: {
+    attributes: { exclude: ['password'] },
+  },
+})
 export class User extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)

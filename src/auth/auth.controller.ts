@@ -85,13 +85,15 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Retrieve the currently authenticated user profile' })
+  @ApiOperation({
+    summary: 'Retrieve the currently authenticated user profile',
+  })
   @ApiBearerAuth()
   @ApiOkResponse({ description: 'Returns the user profile data' })
   @ApiUnauthorizedResponse({
     description: 'Missing or invalid JWT access token',
   })
-  getProfile(@Req() req: Request & { user: { sub: string } }) {
-    return this.authService.getProfile(req.user.sub);
+  getProfile(@Req() req: Request & { user: User }) {
+    return this.authService.getProfile(req.user);
   }
 }

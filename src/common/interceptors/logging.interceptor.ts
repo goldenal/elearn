@@ -13,7 +13,7 @@ import { tap } from 'rxjs/operators';
 export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(LoggingInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler<any>): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest<Request>();
     const response = httpContext.getResponse<Response>();
@@ -23,7 +23,9 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     const { method, originalUrl, params, query } = request;
-    const sanitizedBody = this.sanitizePayload(request.body);
+    const body: unknown = request.body;
+    const sanitizedBody = this.sanitizePayload(body);
+
     const start = Date.now();
 
     this.logger.log(
@@ -34,7 +36,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({
-        next: (data) => {
+        next: (data: unknown) => {
           const duration = Date.now() - start;
           this.logger.log(
             `Outgoing ${method} ${originalUrl} ${response.statusCode} | ${duration}ms | response=${JSON.stringify(
@@ -42,20 +44,18 @@ export class LoggingInterceptor implements NestInterceptor {
             )}`,
           );
         },
-        error: (error) => {
+        error: (error: Error) => {
           const duration = Date.now() - start;
           this.logger.error(
-            `Error ${method} ${originalUrl} ${response.statusCode} | ${duration}ms | message=${
-              error?.message ?? 'unknown'
-            }`,
-            error?.stack,
+            `Error ${method} ${originalUrl} ${response.statusCode} | ${duration}ms | message=${error.message}`,
+            error.stack,
           );
         },
       }),
     );
   }
 
-  private sanitizePayload(payload: any): any {
+  private sanitizePayload(payload: unknown): unknown {
     if (payload === null || payload === undefined) {
       return payload;
     }

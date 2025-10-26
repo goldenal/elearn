@@ -45,7 +45,7 @@ export class AuthService {
 
   async register(registerDto: RegisterUserDto) {
     try {
-      const existingUser = await this.usersService.findByEmail(
+      const existingUser = await this.usersService.findOneByEmail(
         registerDto.email.toLowerCase(),
       );
 
@@ -61,11 +61,12 @@ export class AuthService {
         PASSWORD_SALT_ROUNDS,
       );
 
-      const user = await this.usersService.createUser({
-        firstName,
-        lastName,
+      const user = await this.usersService.create({
         email: registerDto.email.toLowerCase(),
         password: hashedPassword,
+        firstName,
+        lastName,
+        role: 'student',
       });
 
       const token = await this.generateAccessToken(user);
@@ -74,14 +75,14 @@ export class AuthService {
         user: this.sanitizeUser(user),
         accessToken: token,
       };
-    } catch (error) {
-      this.handleError('register', error);
+    } catch (error: unknown) {
+      return this.handleError('register', error);
     }
   }
 
   async login(loginDto: LoginUserDto) {
     try {
-      const user = await this.usersService.findByEmail(
+      const user = await this.usersService.findOneByEmail(
         loginDto.email.toLowerCase(),
       );
 
@@ -104,8 +105,8 @@ export class AuthService {
         user: this.sanitizeUser(user),
         accessToken: token,
       };
-    } catch (error) {
-      this.handleError('login', error);
+    } catch (error: unknown) {
+      return this.handleError('login', error);
     }
   }
 
@@ -147,7 +148,7 @@ export class AuthService {
             code,
             purpose,
           });
-        } catch (mailerError) {
+        } catch (mailerError: unknown) {
           this.logger.error(
             `Failed to send OTP email to ${dto.phoneOrEmail}`,
             mailerError instanceof Error ? mailerError.stack : undefined,
@@ -165,8 +166,8 @@ export class AuthService {
         otpId: otp.id,
         deliveryMethod: isEmailDestination ? 'email' : 'unsupported',
       };
-    } catch (error) {
-      this.handleError('requestOtp', error);
+    } catch (error: unknown) {
+      return this.handleError('requestOtp', error);
     }
   }
 
@@ -196,22 +197,16 @@ export class AuthService {
       await otpRecord.save();
 
       return { message: 'OTP verified successfully' };
-    } catch (error) {
-      this.handleError('verifyOtp', error);
+    } catch (error: unknown) {
+      return this.handleError('verifyOtp', error);
     }
   }
 
-  async getProfile(userId: string) {
+  async getProfile(user: User) {
     try {
-      const user = await this.usersService.findById(userId);
-
-      if (!user) {
-        throw new UnauthorizedException();
-      }
-
       return this.sanitizeUser(user);
-    } catch (error) {
-      this.handleError('getProfile', error);
+    } catch (error: unknown) {
+      return this.handleError('getProfile', error);
     }
   }
 
@@ -227,7 +222,7 @@ export class AuthService {
   }
 
   private sanitizeUser(user: User) {
-    const { password, ...userData } = user.get({ plain: true }) as User & {
+    const { ...userData } = user.get({ plain: true }) as User & {
       password?: string;
     };
     return userData;
